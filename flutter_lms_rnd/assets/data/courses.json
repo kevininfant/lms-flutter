@@ -1,0 +1,75 @@
+[
+  {
+    "id": "flutter_development",
+    "name": "Flutter Development",
+    "duration": "3 weeks",
+    "rating": 4.5,
+    "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    "description": "Learn how to build beautiful apps using Flutter.\nThis course covers everything from the basics to advanced concepts.",
+    "type": "video",
+    "thumbnailPath": "assets/images/lmslogo.png",
+    "isOfflineAvailable": false
+  },
+  {
+    "id": "data_science",
+    "name": "Data Science",
+    "duration": "6 weeks",
+    "rating": 4.8,
+    "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    "description": "Dive into data analysis and machine learning.\nHands-on projects included.",
+    "type": "video",
+    "thumbnailPath": "assets/images/logo.png",
+    "isOfflineAvailable": false
+  },
+  {
+    "id": "web_development",
+    "name": "Web Development",
+    "duration": "4 weeks",
+    "rating": 4.2,
+    "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4",
+    "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4",
+    "description": "Create stunning websites with modern technologies.\nFocus on both front-end and back-end development.",
+    "type": "video",
+    "thumbnailPath": "assets/images/splashscreen.png",
+    "isOfflineAvailable": false
+  },
+  {
+    "id": "personal_retail_insurance",
+    "name": "Personal Retail Insurance",
+    "duration": "2 weeks",
+    "rating": 4.6,
+    "url": "assets/data/pri.zip",
+    "videoUrl": "",
+    "description": "Comprehensive SCORM course on personal retail insurance policies and procedures.\nInteractive content with progress tracking.",
+    "type": "scorm",
+    "scormAssetPath": "assets/data/pri.zip",
+    "thumbnailPath": "assets/images/lmslogo.png",
+    "isOfflineAvailable": true
+  },
+  {
+    "id": "moodle_course_example",
+    "name": "Moodle Course Example",
+    "duration": "2 weeks",
+    "rating": 4.6,
+    "url": "https://moodle.example.com/mod/resource/view.php?id=123",
+    "videoUrl": "https://moodle.example.com/mod/resource/view.php?id=123",
+    "description": "Example Moodle course page that will be scraped for video content.\nThis demonstrates the URL scraping functionality.",
+    "type": "url",
+    "thumbnailPath": "assets/images/logo.png",
+    "isOfflineAvailable": false
+  },
+  {
+    "id": "lms_video_course",
+    "name": "LMS Video Course",
+    "duration": "5 weeks",
+    "rating": 4.7,
+    "url": "https://lms.example.com/course/video/456",
+    "videoUrl": "https://lms.example.com/course/video/456",
+    "description": "Learning Management System course with embedded video.\nShows how the app handles different LMS platforms.",
+    "type": "url",
+    "thumbnailPath": "assets/images/splashscreen.png",
+    "isOfflineAvailable": false
+  }
+]

@@ -1,0 +1,48 @@
+{
+  "users": [
+    {
+      "_id": "1",
+      "email": "admin@lms.com",
+      "password": "admin123",
+      "name": "Admin User",
+      "type": "admin",
+      "age": 30,
+      "gender": "male",
+      "mobile": "1234567890",
+      "address": "123 Admin Street",
+      "dob": "1993-01-01",
+      "imagecode": 1
+    },
+    {
+      "_id": "2",
+      "email": "student@lms.com",
+      "password": "student123",
+      "name": "Student User",
+      "type": "student",
+      "age": 22,
+      "gender": "female",
+      "mobile": "0987654321",
+      "address": "456 Student Avenue",
+      "dob": "2001-05-15",
+      "imagecode": 2
+    },
+    {
+      "_id": "3",
+      "email": "teacher@lms.com",
+      "password": "teacher123",
+      "name": "Teacher User",
+      "type": "teacher",
+      "age": 35,
+      "gender": "male",
+      "mobile": "1122334455",
+      "address": "789 Teacher Road",
+      "dob": "1988-03-20",
+      "imagecode": 3
+    }
+  ],
+  "settings": {
+    "requireOTP": false,
+    "maxLoginAttempts": 3,
+    "sessionTimeout": 3600
+  }
+}
