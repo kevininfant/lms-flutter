@@ -64,7 +64,7 @@ class HomeScreen extends StatelessWidget {
           // NOVAC Axle Logo
           Text(
             'NOVAC Axle',
-            style: TextStyle(
+            style: TextStyle( 
               fontSize: logoFontSize,
               fontWeight: FontWeight.bold,
               color: Colors.yellow.shade700,
