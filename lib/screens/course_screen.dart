@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
+import 'scorm_only_screen.dart';
+import 'video_only_screen.dart';
+import 'music_only_screen.dart';
+import 'h5p_only_screen.dart';
+import 'document_only_screen.dart';
 
 class CourseScreen extends StatelessWidget {
   final User user;
@@ -23,64 +28,35 @@ class CourseScreen extends StatelessWidget {
     final courses = [
       {
         'title': 'Web Development Fundamentals',
-        'type': 'SCORM',
+        'type': 'scorm',
         'icon': Icons.school,
         'color': Colors.blue,
       },
       {
         'title': 'JavaScript Tutorial Series',
-        'type': 'Videos',
+        'type': 'video',
         'icon': Icons.video_library,
         'color': Colors.red,
       },
       {
         'title': 'Programming Podcasts',
-        'type': 'Audios',
+        'type': 'music',
         'icon': Icons.headphones,
         'color': Colors.green,
       },
       {
         'title': 'API Documentation',
-        'type': 'Docs',
+        'type': 'docs',
         'icon': Icons.description,
         'color': Colors.orange,
       },
       {
         'title': 'Interactive Coding Exercise',
-        'type': 'H5P',
+        'type': 'h5p',
         'icon': Icons.quiz,
         'color': Colors.purple,
       },
-      {
-        'title': 'Database Design Course',
-        'type': 'SCORM',
-        'icon': Icons.school,
-        'color': Colors.blue,
-      },
-      {
-        'title': 'React Native Tutorials',
-        'type': 'Videos',
-        'icon': Icons.video_library,
-        'color': Colors.red,
-      },
-      {
-        'title': 'Tech Talk Podcasts',
-        'type': 'Audios',
-        'icon': Icons.headphones,
-        'color': Colors.green,
-      },
-      {
-        'title': 'Flutter Guide',
-        'type': 'Docs',
-        'icon': Icons.description,
-        'color': Colors.orange,
-      },
-      {
-        'title': 'Mobile App Quiz',
-        'type': 'H5P',
-        'icon': Icons.quiz,
-        'color': Colors.purple,
-      },
+    
     ];
 
     return Padding(
@@ -162,13 +138,57 @@ class CourseScreen extends StatelessWidget {
                 // Action Button
                 IconButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Opening ${course['title']} (${course['type']})',
-                        ),
-                      ),
-                    );
+                    final courseType = course['type'] as String;
+                    switch (courseType) {
+                      case 'scorm':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ScormOnlyScreen(),
+                          ),
+                        );
+                        break;
+                      case 'video':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const VideoOnlyScreen(),
+                          ),
+                        );
+                        break;
+                      case 'music':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MusicOnlyScreen(),
+                          ),
+                        );
+                        break;
+                      case 'h5p':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const H5POnlyScreen(),
+                          ),
+                        );
+                        break;
+                      case 'docs':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const DocumentOnlyScreen(),
+                          ),
+                        );
+                        break;
+                      default:
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Opening ${course['title']} (${course['type']})',
+                            ),
+                          ),
+                        );
+                    }
                   },
                   icon: Icon(
                     Icons.arrow_forward_ios,

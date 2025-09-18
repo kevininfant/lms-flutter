@@ -38,6 +38,20 @@ dependencies:
   equatable: ^2.0.7
   http: ^1.5.0
   shared_preferences: ^2.2.2
+  # SCORM and content player dependencies
+  path_provider: ^2.1.4
+  archive: ^3.4.10
+  xml: ^6.5.0
+  webview_flutter: ^4.13.0
+  webview_flutter_android: ^4.7.0
+  webview_flutter_wkwebview: ^3.9.4
+  webview_flutter_platform_interface: ^2.8.3
+  path: ^1.8.3
+  shelf: ^1.4.1
+  shelf_static: ^1.1.1
+  just_audio: ^0.9.39
+  audio_session: ^0.1.16
+  open_file: ^3.5.10
 
 dev_dependencies:
   flutter_test:

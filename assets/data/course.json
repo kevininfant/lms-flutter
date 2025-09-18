@@ -1,0 +1,130 @@
+{
+  "scorm": [
+    {
+      "id": 1,
+      "scormName": "Example SCORM 1",
+      "scormFileLink": "assets/data/scorm.zip",
+      "description": "Introductory SCORM package for testing LMS functionality"
+    },
+    {
+      "id": 2,
+      "scormName": "Example SCORM 2",
+      "courseName": "Sample Course",
+      "scormFileLink": "assets/data/pri.zip",
+      "description": "SCORM package containing a sample course presentation"
+    }
+  ],
+  "video": [
+    {
+      "id": 1,
+      "videoName": "Sample Video 1",
+      "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "type": "mp4",
+      "description": "Big Buck Bunny demo video in MP4 format"
+    },
+    {
+      "id": 2,
+      "videoName": "Sample Vimeo Video",
+      "videoUrl": "https://vimeo.com/347119375",
+      "type": "vimeo",
+      "description": "Vimeo-hosted sample video for testing streaming"
+    },
+    {
+      "id": 3,
+      "videoName": "Sample Audio-Video",
+      "videoUrl": "assets/videos/video2.mp4a",
+      "type": "mp4a",
+      "description": "Local MP4A sample video file for testing"
+    }
+  ],
+  "music": [
+    {
+      "id": 1,
+      "musicName": "Sample Music 1",
+      "musicUrl": "https://commondatastorage.googleapis.com/codeskulptor-demos/DDR_assets/Kangaroo_MusiQue_-_The_Neverwritten_Role_Playing_Game.mp3",
+      "type": "mp3",
+      "description": "Background MP3 music for demonstration"
+    },
+    {
+      "id": 2,
+      "musicName": "Sample Music 2",
+      "musicUrl": "https://commondatastorage.googleapis.com/codeskulptor-assets/week7-button.m4a",
+      "type": "mp4",
+      "description": "Sample M4A audio file for testing music playback"
+    },
+    {
+      "id": 3,
+      "musicName": "Sample Music 3",
+      "musicUrl": "https://commondatastorage.googleapis.com/codeskulptor-demos/riceracer_assets/fx/engine-3.ogg",
+      "type": "ogg",
+      "description": "OGG format sample music track"
+    }
+  ],
+  "h5p": [
+    {
+      "id": 1,
+      "h5pName": "Play online H5P (example)",
+      "h5pFile": "https://h5p.org/h5p/embed/612",
+      "type": "h5p",
+      "description": "Interactive H5P quiz example"
+    },
+    {
+      "id": 2,
+      "h5pName": "Course Presentation",
+      "h5pFile": "https://h5p.org/h5p/embed/57130",
+      "type": "h5p",
+      "description": "H5P-based course presentation activity"
+    },
+    {
+      "id": 3,
+      "h5pName": "Accordion",
+      "h5pFile": "https://h5p.org/h5p/embed/6724",
+      "type": "h5p",
+      "description": "Accordion-style expandable content created in H5P"
+    },
+    {
+      "id": 4,
+      "h5pName": "Play online H5P (duplicate example)",
+      "h5pFile": "https://h5p.org/h5p/embed/612",
+      "type": "h5p",
+      "description": "Duplicate H5P example activity for testing multiple entries"
+    }
+  ],
+  "docs": [
+    {
+      "id": 1,
+      "docName": "Course Presentation",
+      "filePath": "assets/data/demo.docx",
+      "type": "doc",
+      "description": "Microsoft Word document sample"
+    },
+    {
+      "id": 2,
+      "docName": "Sample Presentation",
+      "filePath": "assets/data/columns.xls",
+      "type": "ppt",
+      "description": "PowerPoint presentation sample"
+    },
+    {
+      "id": 3,
+      "docName": "Sample PDF",
+      "filePath": "https://icseindia.org/document/sample.pdf",
+      "type": "pdf",
+      "description": "Sample PDF file hosted online"
+    },
+    {
+      "id": 4,
+      "docName": "Sample Excel",
+      "filePath": "assets/data/columns.xls",
+      "type": "xlsx",
+      "description": "Excel spreadsheet document sample"
+    },
+    {
+      "id": 5,
+      "docName": "Sample Text File",
+      "filePath": "https://www.w3.org/TR/PNG/iso_8859-1.txt",
+      "type": "txt",
+      "description": "Plain text file example hosted online"
+    }
+  ]
+}
