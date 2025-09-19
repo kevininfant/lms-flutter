@@ -1,10 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:open_file/open_file.dart';
 import '../models/scorm.dart';
+import '../services/pdf_conversion_service.dart';
+import '../services/permission_service.dart';
 
 class DocumentViewerScreen extends StatefulWidget {
   final Document document;
@@ -16,65 +16,95 @@ class DocumentViewerScreen extends StatefulWidget {
 }
 
 class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
-  late final WebViewController _webViewController;
   bool _isLoading = true;
   String? _error;
-  bool _usedAltViewer = false;
-
-  bool _isOffice(String lower) {
-    return lower.endsWith('.doc') ||
-        lower.endsWith('.docx') ||
-        lower.endsWith('.xls') ||
-        lower.endsWith('.xlsx') ||
-        lower.endsWith('.ppt') ||
-        lower.endsWith('.pptx');
-  }
-
-  bool _isPdf(String lower) {
-    return lower.endsWith('.pdf');
-  }
-
-  // Prefer Office Online for Office files; Google Viewer for PDFs; direct for txt/others
-  String _wrapUrlForPreview(String raw) {
-    final lower = raw.toLowerCase();
-    if (_isOffice(lower)) {
-      final encoded = Uri.encodeComponent(raw);
-      return 'https://view.officeapps.live.com/op/embed.aspx?src=$encoded';
-    }
-    if (_isPdf(lower)) {
-      final encoded = Uri.encodeComponent(raw);
-      return 'https://docs.google.com/gview?embedded=1&url=$encoded';
-    }
-    return raw;
-  }
-
-  String? _altViewerUrl(String raw) {
-    final lower = raw.toLowerCase();
-    if (_isPdf(lower)) {
-      // Fallback to PDF.js if Google Viewer fails
-      final encoded = Uri.encodeComponent(raw);
-      return 'https://mozilla.github.io/pdf.js/web/viewer.html?file=$encoded';
-    }
-    if (_isOffice(lower)) {
-      // No Google Docs fallback per requirement; keep single viewer
-      return null;
-    }
-    return null;
-  }
+  String? _pdfPath;
+  final PdfConversionService _pdfConverter = PdfConversionService();
+  final PermissionService _permissionService = PermissionService();
 
   @override
   void initState() {
     super.initState();
-    
-    // Check file type and use appropriate viewer
-    final lower = widget.document.filePath.toLowerCase();
-    if (lower.endsWith('.ppt') || lower.endsWith('.pptx') || 
-        lower.endsWith('.doc') || lower.endsWith('.docx')) {
+    _initializeDocumentViewer();
+  }
+
+  Future<void> _initializeDocumentViewer() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Request storage permissions first
+      final hasPermissions = await _permissionService.hasStoragePermissions();
+      if (!hasPermissions) {
+        final granted = await _permissionService.requestStoragePermissions();
+        if (!granted) {
+          setState(() {
+            _error =
+                'Storage permissions are required to view documents. Please grant permissions in app settings.';
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      final lower = widget.document.filePath.toLowerCase();
+
+      // Check if it's a PDF file
+      if (lower.endsWith('.pdf')) {
+        setState(() {
+          _pdfPath = widget.document.filePath;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Check if it's an Office file that can be converted to PDF
+      if (_pdfConverter.canConvertToPdf(widget.document.filePath)) {
+        await _convertAndPreviewOfficeFile();
+        return;
+      }
+
+      // For other files, try to open with native app
       _openWithNativeApp();
-      return;
+    } catch (e) {
+      setState(() {
+        _error = 'Error initializing document viewer: $e';
+        _isLoading = false;
+      });
     }
-    
-    _initializeWebView();
+  }
+
+  Future<void> _convertAndPreviewOfficeFile() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Convert Office file to PDF
+      final pdfPath = await _pdfConverter.convertToPdf(
+        widget.document.filePath,
+      );
+
+      if (pdfPath != null) {
+        setState(() {
+          _pdfPath = pdfPath;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = 'Failed to convert document to PDF';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Error converting document: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _openWithNativeApp() async {
@@ -86,7 +116,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
 
       // Use open_file package to open files with native apps
       final result = await OpenFile.open(widget.document.filePath);
-      
+
       if (result.type != ResultType.done) {
         throw Exception('Failed to open file: ${result.message}');
       }
@@ -129,194 +159,201 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     return 'Document';
   }
 
-  void _initializeWebView() {
-    final PlatformWebViewControllerCreationParams params =
-        WebViewPlatform.instance is WebKitWebViewPlatform
-        ? WebKitWebViewControllerCreationParams(
-            allowsInlineMediaPlayback: true,
-            mediaTypesRequiringUserAction: <PlaybackMediaTypes>{},
-          )
-        : const PlatformWebViewControllerCreationParams();
-    final WebViewController controller =
-        WebViewController.fromPlatformCreationParams(params);
-
-    if (controller.platform is AndroidWebViewController) {
-      AndroidWebViewController.enableDebugging(true);
-      (controller.platform as AndroidWebViewController)
-          .setMediaPlaybackRequiresUserGesture(false);
-    }
-
-    // Assign the controller first before using it
-    _webViewController = controller;
-
-    controller
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onWebResourceError: (error) {
-            final alt = !_usedAltViewer ? _altViewerUrl(widget.document.filePath) : null;
-            if (alt != null) {
-              setState(() {
-                _isLoading = true;
-                _error = null;
-                _usedAltViewer = true;
-              });
-              _webViewController.loadRequest(Uri.parse(alt));
-              return;
-            }
-            setState(() => _error = error.description);
-          },
-          onPageFinished: (url) {
-            setState(() => _isLoading = false);
-          },
-        ),
-      );
-
-    final wrapped = _wrapUrlForPreview(widget.document.filePath);
-    controller.loadRequest(Uri.parse(wrapped));
-  }
-
   @override
   Widget build(BuildContext context) {
     final lower = widget.document.filePath.toLowerCase();
-    final isOfficeFile = lower.endsWith('.ppt') || lower.endsWith('.pptx') || 
-                        lower.endsWith('.doc') || lower.endsWith('.docx');
-    
+    final isOfficeFile = _pdfConverter.canConvertToPdf(
+      widget.document.filePath,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.document.docName),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
         actions: [
+          if (_pdfPath != null)
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Download functionality coming soon'),
+                  ),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               setState(() {
                 _isLoading = true;
                 _error = null;
-                _usedAltViewer = false;
+                _pdfPath = null;
               });
-              if (isOfficeFile) {
-                _openWithNativeApp();
-              } else {
-                _initializeWebView();
-              }
+              _initializeDocumentViewer();
             },
           ),
         ],
       ),
-      body: _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading document',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _error!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _isLoading = true;
-                        _error = null;
-                        _usedAltViewer = false;
-                      });
-                      if (isOfficeFile) {
-                        _openWithNativeApp();
-                      } else {
-                        _initializeWebView();
-                      }
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_error != null) {
+      return _buildErrorView();
+    }
+
+    if (_pdfPath != null) {
+      return _buildPdfViewer();
+    }
+
+    if (_isLoading) {
+      return _buildLoadingView();
+    }
+
+    return _buildNativeAppView();
+  }
+
+  Widget _buildPdfViewer() {
+    // Check if it's a remote URL or local file
+    if (_pdfPath!.startsWith('http://') || _pdfPath!.startsWith('https://')) {
+      return SfPdfViewer.network(
+        _pdfPath!,
+        enableDoubleTapZooming: true,
+        enableTextSelection: true,
+        canShowScrollHead: true,
+        canShowScrollStatus: true,
+        onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+          setState(() {
+            _error = 'Failed to load PDF: ${details.error}';
+          });
+        },
+      );
+    } else {
+      return SfPdfViewer.file(
+        File(_pdfPath!),
+        enableDoubleTapZooming: true,
+        enableTextSelection: true,
+        canShowScrollHead: true,
+        canShowScrollStatus: true,
+        onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+          setState(() {
+            _error = 'Failed to load PDF: ${details.error}';
+          });
+        },
+      );
+    }
+  }
+
+  Widget _buildErrorView() {
+    final isPermissionError = _error!.contains('permissions');
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Error loading document',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _error = null;
+                    _pdfPath = null;
+                  });
+                  _initializeDocumentViewer();
+                },
+                child: const Text('Retry'),
               ),
-            )
-          : isOfficeFile
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _getFileIcon(lower),
-                        size: 80,
-                        color: _getFileColor(lower),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        '${_getFileTypeName(lower)} File Opened',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'The ${_getFileTypeName(lower).toLowerCase()} has been opened\nin your default application.',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: () {
-                          _openWithNativeApp();
-                        },
-                        child: const Text('Open Again'),
-                      ),
-                    ],
+              if (isPermissionError) ...[
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    _permissionService.openSettings();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
                   ),
-                )
-              : Stack(
-                  children: [
-                    WebViewWidget(controller: _webViewController),
-                    if (_isLoading)
-                      const Positioned.fill(
-                        child: ColoredBox(
-                          color: Color(0x11000000),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Loading document...',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                  child: const Text('Open Settings'),
                 ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingView() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'Loading document...',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNativeAppView() {
+    final lower = widget.document.filePath.toLowerCase();
+    final isOfficeFile = _pdfConverter.canConvertToPdf(
+      widget.document.filePath,
+    );
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(_getFileIcon(lower), size: 80, color: _getFileColor(lower)),
+          const SizedBox(height: 20),
+          Text(
+            '${_getFileTypeName(lower)} File',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isOfficeFile
+                ? 'The ${_getFileTypeName(lower).toLowerCase()} has been opened\nin your default application.'
+                : 'This file type cannot be previewed directly.\nPlease download and open with a compatible app.',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              _openWithNativeApp();
+            },
+            child: Text(isOfficeFile ? 'Open Again' : 'Download File'),
+          ),
+        ],
+      ),
     );
   }
 }

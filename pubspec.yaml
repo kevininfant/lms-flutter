@@ -52,6 +52,10 @@ dependencies:
   just_audio: ^0.9.39
   audio_session: ^0.1.16
   open_file: ^3.5.10
+  # Document preview dependencies
+  syncfusion_flutter_pdfviewer: ^31.1.20
+  # Permission handling for external storage
+  permission_handler: ^11.2.0
 
 dev_dependencies:
   flutter_test:
