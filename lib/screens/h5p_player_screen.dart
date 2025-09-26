@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
@@ -103,26 +102,16 @@ class _H5PPlayerScreenState extends State<H5PPlayerScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Error loading H5P content',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _error!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -245,7 +234,9 @@ class _H5PPlayerScreenState extends State<H5PPlayerScreen> {
           final String relative = path
               .relative(launchPath, from: extractPath)
               .replaceAll('\\', '/');
-          final Uri url = Uri.parse('http://127.0.0.1:${server.port}/$relative');
+          final Uri url = Uri.parse(
+            'http://127.0.0.1:${server.port}/$relative',
+          );
           await _webViewController.loadRequest(url);
         } catch (e) {
           // If asset loading fails, try to load the URL directly
@@ -268,7 +259,9 @@ class _H5PPlayerScreenState extends State<H5PPlayerScreen> {
 
   String? _findAnyHtml(String root) {
     try {
-      final List<FileSystemEntity> files = Directory(root).listSync(recursive: true);
+      final List<FileSystemEntity> files = Directory(
+        root,
+      ).listSync(recursive: true);
       for (final f in files) {
         if (f is File && path.extension(f.path).toLowerCase() == '.html') {
           return f.path;
@@ -340,32 +333,24 @@ class _H5POnlinePlayerScreenState extends State<H5POnlinePlayerScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Error loading H5P content',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _error!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      _webViewController.loadRequest(Uri.parse(widget.h5p.h5pFile));
+                      _webViewController.loadRequest(
+                        Uri.parse(widget.h5p.h5pFile),
+                      );
                     },
                     child: const Text('Retry'),
                   ),

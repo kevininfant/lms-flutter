@@ -121,10 +121,17 @@
     },
     {
       "id": 5,
-      "docName": "Sample Text File",
-      "filePath": "https://www.w3.org/TR/PNG/iso_8859-1.txt",
+      "docName": "Sample Text File (Remote)",
+      "filePath": "https://example-files.online-convert.com/document/txt/example.txt",
       "type": "txt",
       "description": "Plain text file example hosted online"
+    },
+    {
+      "id": 6,
+      "docName": "Sample Text File (Local)",
+      "filePath": "assets/data/sample.txt",
+      "type": "txt",
+      "description": "Local plain text file for testing"
     }
   ]
 }

@@ -63,7 +63,7 @@ class HomeScreen extends StatelessWidget {
         children: [
           // NOVAC Axle Logo
           Text(
-            'NOVAC Axle',
+            'NOVAC Lms',
             style: TextStyle( 
               fontSize: logoFontSize,
               fontWeight: FontWeight.bold,

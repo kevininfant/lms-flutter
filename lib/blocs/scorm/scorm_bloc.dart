@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../repositories/scorm_repository.dart';
-import '../../models/scorm.dart';
 import 'scorm_event.dart';
 import 'scorm_state.dart';
 
@@ -9,11 +8,14 @@ class ScormBloc extends Bloc<ScormEvent, ScormState> {
 
   ScormBloc(this.scormRepository) : super(ScormInitial()) {
     on<LoadScormData>((event, emit) async {
+      print('🎬 SCORM BLoC: Loading SCORM data...');
       emit(ScormLoading());
       try {
         final scorms = await scormRepository.loadScorms();
+        print('✅ SCORM BLoC: Loaded ${scorms.length} SCORM packages');
         emit(ScormLoaded(scorms));
       } catch (e) {
+        print('❌ SCORM BLoC: Error loading SCORM data: $e');
         emit(ScormError(e.toString()));
       }
     });

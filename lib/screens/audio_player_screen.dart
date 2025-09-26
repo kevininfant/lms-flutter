@@ -5,6 +5,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 import '../models/scorm.dart';
+import '../services/music_progress_service.dart';
 
 class AudioPlayerScreen extends StatefulWidget {
   final Music music;
@@ -19,11 +20,19 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
   late final WebViewController _webViewController;
   bool _isLoading = true;
   String? _error;
+  final MusicProgressService _progressService = MusicProgressService();
 
   @override
   void initState() {
     super.initState();
     _initializeWebView();
+    _startMusicTracking();
+  }
+
+  @override
+  void dispose() {
+    _progressService.stopTracking();
+    super.dispose();
   }
 
   void _initializeWebView() {
@@ -56,12 +65,83 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
           },
           onPageFinished: (url) {
             setState(() => _isLoading = false);
+            _setupJavaScriptCommunication();
           },
         ),
+      )
+      ..addJavaScriptChannel(
+        'MusicProgress',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleJavaScriptMessage(message.message);
+        },
       )
       ..loadRequest(Uri.parse('data:text/html;base64,$encoded'));
 
     _webViewController = controller;
+  }
+
+  /// Start music progress tracking
+  void _startMusicTracking() {
+    final musicId = widget.music.musicName.replaceAll(' ', '_').toLowerCase();
+    _progressService.startTracking(
+      musicId: musicId,
+      totalDuration: Duration.zero, // Will be updated when audio loads
+    );
+  }
+
+  /// Setup JavaScript communication with the WebView
+  void _setupJavaScriptCommunication() {
+    _webViewController.runJavaScript('''
+      window.flutterMusicProgress = {
+        sendMessage: function(message) {
+          MusicProgress.postMessage(JSON.stringify(message));
+        }
+      };
+    ''');
+  }
+
+  /// Handle JavaScript messages from the WebView
+  void _handleJavaScriptMessage(String message) {
+    try {
+      final data = jsonDecode(message);
+      final event = data['event'] as String;
+
+      switch (event) {
+        case 'loadedmetadata':
+          final duration = Duration(seconds: (data['duration'] as num).toInt());
+          _progressService.updateTotalDuration(duration);
+          _progressService.updateLoadingStatus('Loaded');
+          break;
+        case 'timeupdate':
+          final currentTime = Duration(
+            seconds: (data['currentTime'] as num).toInt(),
+          );
+          _progressService.updatePosition(currentTime);
+          break;
+        case 'play':
+          _progressService.updatePlayState(true);
+          break;
+        case 'pause':
+          _progressService.updatePlayState(false);
+          break;
+        case 'seeked':
+          final seekTime = Duration(
+            seconds: (data['currentTime'] as num).toInt(),
+          );
+          _progressService.onSeek(seekTime);
+          break;
+        case 'volumechange':
+          final volume = data['volume'] as num;
+          _progressService.updateVolume(volume.toDouble());
+          break;
+        case 'ratechange':
+          final rate = data['playbackRate'] as num;
+          _progressService.updatePlaybackRate(rate.toDouble());
+          break;
+      }
+    } catch (e) {
+      debugPrint('Error handling JavaScript message: $e');
+    }
   }
 
   String _buildAudioHtml(String url) {
@@ -143,6 +223,68 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
         // Try autoplay muted; user can still tap play if blocked by policy
         a.muted = true;
         a.play().catch(function(){});
+        
+        // Add event listeners for progress tracking
+        a.addEventListener('loadedmetadata', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'loadedmetadata',
+              duration: a.duration
+            });
+          }
+        });
+        
+        a.addEventListener('timeupdate', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'timeupdate',
+              currentTime: a.currentTime
+            });
+          }
+        });
+        
+        a.addEventListener('play', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'play'
+            });
+          }
+        });
+        
+        a.addEventListener('pause', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'pause'
+            });
+          }
+        });
+        
+        a.addEventListener('seeked', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'seeked',
+              currentTime: a.currentTime
+            });
+          }
+        });
+        
+        a.addEventListener('volumechange', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'volumechange',
+              volume: a.volume
+            });
+          }
+        });
+        
+        a.addEventListener('ratechange', function() {
+          if (window.flutterMusicProgress) {
+            window.flutterMusicProgress.sendMessage({
+              event: 'ratechange',
+              playbackRate: a.playbackRate
+            });
+          }
+        });
       }
       
       // Add custom controls
@@ -208,26 +350,16 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Error loading audio',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _error!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),

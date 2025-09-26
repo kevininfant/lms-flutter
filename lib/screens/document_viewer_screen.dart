@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -5,6 +6,7 @@ import 'package:open_file/open_file.dart';
 import '../models/scorm.dart';
 import '../services/pdf_conversion_service.dart';
 import '../services/permission_service.dart';
+import '../services/document_progress_service.dart';
 
 class DocumentViewerScreen extends StatefulWidget {
   final Document document;
@@ -21,11 +23,23 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   String? _pdfPath;
   final PdfConversionService _pdfConverter = PdfConversionService();
   final PermissionService _permissionService = PermissionService();
+  final DocumentProgressService _progressService = DocumentProgressService();
+  int _currentPage = 1;
+  int _totalPages = 1;
+  Timer? _viewTimeTimer;
 
   @override
   void initState() {
     super.initState();
     _initializeDocumentViewer();
+    _startDocumentTracking();
+  }
+
+  @override
+  void dispose() {
+    _progressService.stopTracking();
+    _viewTimeTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeDocumentViewer() async {
@@ -159,30 +173,56 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     return 'Document';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final lower = widget.document.filePath.toLowerCase();
-    final isOfficeFile = _pdfConverter.canConvertToPdf(
-      widget.document.filePath,
+  /// Start document progress tracking
+  void _startDocumentTracking() {
+    final documentId = widget.document.docName
+        .replaceAll(' ', '_')
+        .toLowerCase();
+    _progressService.startTracking(
+      documentId: documentId,
+      documentName: widget.document.docName,
+      totalPages: _totalPages,
     );
 
+    // Start view time timer to update every second
+    _viewTimeTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      _updateViewTime();
+    });
+  }
+
+  /// Update document progress when page changes
+  void _onPageChanged(int pageNumber) {
+    setState(() {
+      _currentPage = pageNumber;
+    });
+    _progressService.updateScrollPosition(0.0, pageNumber);
+  }
+
+  /// Update document view time
+  void _updateViewTime() {
+    _progressService.updateViewTime(
+      Duration(seconds: DateTime.now().millisecondsSinceEpoch ~/ 1000),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.document.docName),
-        backgroundColor: Colors.orange,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.document.docName, style: TextStyle(fontSize: 16)),
+            if (_totalPages > 1)
+              Text(
+                'Page $_currentPage of $_totalPages',
+                style: TextStyle(fontSize: 12, color: Colors.white70),
+              ),
+          ],
+        ),
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
-          if (_pdfPath != null)
-            IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Download functionality coming soon'),
-                  ),
-                );
-              },
-            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -230,6 +270,16 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             _error = 'Failed to load PDF: ${details.error}';
           });
         },
+        onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+          setState(() {
+            _totalPages = details.document.pages.count;
+          });
+          _progressService.updateTotalPages(_totalPages);
+          _progressService.updateLoadingStatus('Loaded');
+        },
+        onPageChanged: (PdfPageChangedDetails details) {
+          _onPageChanged(details.newPageNumber);
+        },
       );
     } else {
       return SfPdfViewer.file(
@@ -242,6 +292,16 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           setState(() {
             _error = 'Failed to load PDF: ${details.error}';
           });
+        },
+        onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+          setState(() {
+            _totalPages = details.document.pages.count;
+          });
+          _progressService.updateTotalPages(_totalPages);
+          _progressService.updateLoadingStatus('Loaded');
+        },
+        onPageChanged: (PdfPageChangedDetails details) {
+          _onPageChanged(details.newPageNumber);
         },
       );
     }
@@ -308,49 +368,39 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 16),
-          Text(
-            'Loading document...',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
+          Text('Loading document...', style: TextStyle(fontSize: 16)),
         ],
       ),
     );
   }
 
   Widget _buildNativeAppView() {
-    final lower = widget.document.filePath.toLowerCase();
-    final isOfficeFile = _pdfConverter.canConvertToPdf(
-      widget.document.filePath,
-    );
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_getFileIcon(lower), size: 80, color: _getFileColor(lower)),
-          const SizedBox(height: 20),
-          Text(
-            '${_getFileTypeName(lower)} File',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
-            ),
+          Icon(
+            _getFileIcon(widget.document.filePath),
+            size: 64,
+            color: _getFileColor(widget.document.filePath),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Text(
-            isOfficeFile
-                ? 'The ${_getFileTypeName(lower).toLowerCase()} has been opened\nin your default application.'
-                : 'This file type cannot be previewed directly.\nPlease download and open with a compatible app.',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            widget.document.docName,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
+          Text(
+            _getFileTypeName(widget.document.filePath),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
               _openWithNativeApp();
             },
-            child: Text(isOfficeFile ? 'Open Again' : 'Download File'),
+            child: const Text('Open with Native App'),
           ),
         ],
       ),

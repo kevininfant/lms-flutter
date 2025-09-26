@@ -53,12 +53,19 @@ class PdfConversionService {
     }
   }
 
+  /// Check if a file can be converted to PDF
+  bool canConvertToPdf(String filePath) {
+    return _isSupportedOfficeFile(filePath);
+  }
+
   bool _isSupportedOfficeFile(String filePath) {
     final lower = filePath.toLowerCase();
     return lower.endsWith('.docx') ||
         lower.endsWith('.doc') ||
         lower.endsWith('.ppt') ||
-        lower.endsWith('.pptx');
+        lower.endsWith('.pptx') ||
+        lower.endsWith('.xls') ||
+        lower.endsWith('.xlsx');
   }
 
   Future<Uint8List> _loadAssetFile(String assetPath) async {
@@ -185,10 +192,5 @@ startxref
       return 'PowerPoint';
     }
     return 'Office';
-  }
-
-  /// Checks if a file can be converted to PDF
-  bool canConvertToPdf(String filePath) {
-    return _isSupportedOfficeFile(filePath);
   }
 }

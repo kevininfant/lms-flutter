@@ -5,6 +5,7 @@ import 'video_only_screen.dart';
 import 'music_only_screen.dart';
 import 'h5p_only_screen.dart';
 import 'document_only_screen.dart';
+import '../test_scorm_loading.dart';
 
 class CourseScreen extends StatelessWidget {
   final User user;
@@ -56,7 +57,12 @@ class CourseScreen extends StatelessWidget {
         'icon': Icons.quiz,
         'color': Colors.purple,
       },
-    
+      {
+        'title': 'SCORM Loading Test',
+        'type': 'test',
+        'icon': Icons.bug_report,
+        'color': Colors.red,
+      },
     ];
 
     return Padding(
@@ -177,6 +183,14 @@ class CourseScreen extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (context) => const DocumentOnlyScreen(),
+                          ),
+                        );
+                        break;
+                      case 'test':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TestScormLoading(),
                           ),
                         );
                         break;

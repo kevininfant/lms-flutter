@@ -1,0 +1,21 @@
+This is a sample text file for testing the LMS document viewer.
+
+Features of this text file:
+- Plain text content
+- Multiple lines
+- Special characters: !@#$%^&*()
+- Numbers: 1234567890
+- Unicode: αβγδε
+
+This file demonstrates how the document viewer handles:
+1. Text files from assets
+2. Remote text files from URLs
+3. Local text files from file system
+
+The text viewer should display this content in a clean, readable format with:
+- Monospace font for better readability
+- Scrollable content
+- File information header
+- Character count display
+
+End of sample text file.

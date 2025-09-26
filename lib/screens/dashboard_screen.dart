@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:lms_product/screens/todo_calendar_screen.dart';
 import '../models/user.dart';
 import 'profile_screen.dart';
+import '../test_alert_demo.dart';
 import 'home_screen.dart';
 import 'course_screen.dart';
+import 'meetings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final User user;
@@ -26,8 +29,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final screens = [
       HomeScreen(user: widget.user),
       CourseScreen(user: widget.user),
-      _buildFavoritesScreen(),
-      _buildLibraryScreen(),
+      const MeetingsScreen(),
+      TodoCalendarScreen(),
       _buildUsersScreen(),
     ];
 
@@ -63,7 +66,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Course'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'FavList'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.video_call),
+            label: 'Meetings',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.library_books),
             label: 'Library',
@@ -75,15 +81,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Placeholder screens for other tabs
-  Widget _buildFavoritesScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Favorites'),
-        backgroundColor: Colors.yellow.shade400,
-      ),
-      body: const Center(child: Text('Favorites Screen - Coming Soon!')),
-    );
-  }
 
   Widget _buildLibraryScreen() {
     return Scaffold(
@@ -110,6 +107,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context) => ProfileScreen(user: widget.user),
                   ),
                 );
+              } else if (value == 'alert_demo') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AlertDemoScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (BuildContext context) => [
@@ -120,6 +123,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Icon(Icons.person),
                     SizedBox(width: 8),
                     Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'alert_demo',
+                child: Row(
+                  children: [
+                    Icon(Icons.notifications_active),
+                    SizedBox(width: 8),
+                    Text('Alert Demo'),
                   ],
                 ),
               ),
@@ -135,11 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.people_outline,
-              size: 80,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.people_outline, size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 20),
             Text(
               'Users Management',
@@ -204,5 +213,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
 }

@@ -5,7 +5,9 @@ import '../models/scorm.dart';
 class ScormRepository {
   Future<CourseData> loadCourseData() async {
     try {
-      final String response = await rootBundle.loadString('assets/data/course.json');
+      final String response = await rootBundle.loadString(
+        'assets/data/course.json',
+      );
       final Map<String, dynamic> data = json.decode(response);
       return CourseData.fromJson(data);
     } catch (e) {
@@ -15,9 +17,16 @@ class ScormRepository {
 
   Future<List<Scorm>> loadScorms() async {
     try {
+      print('🔍 Loading SCORM data...');
       final courseData = await loadCourseData();
+      print('✅ Course data loaded successfully');
+      print('📦 Found ${courseData.scorms.length} SCORM packages:');
+      for (final scorm in courseData.scorms) {
+        print('  - ${scorm.scormName} (${scorm.scormFileLink})');
+      }
       return courseData.scorms;
     } catch (e) {
+      print('❌ Error loading SCORM data: $e');
       throw Exception('Failed to load SCORM data: $e');
     }
   }

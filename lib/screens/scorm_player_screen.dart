@@ -16,6 +16,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_static/shelf_static.dart' as shelf_static;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import '../models/scorm.dart';
+import '../services/video_progress_service.dart';
 
 class ScormPlayerScreen extends StatefulWidget {
   final Scorm scorm;
@@ -32,6 +33,7 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
   String? _error;
   bool _useLocalServer = true;
   HttpServer? _server;
+  final VideoProgressService _progressService = VideoProgressService();
 
   @override
   void initState() {
@@ -60,16 +62,25 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
+      ..addJavaScriptChannel(
+        'videoProgress',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleVideoProgressMessage(message.message);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onWebResourceError: (error) {
             debugPrint(
               'WebView error: ${error.errorCode} ${error.description}',
             );
-            
+
             // Handle cleartext HTTP error
-            if (error.errorCode == -1 && error.description.contains('ERR_CLEARTEXT_NOT_PERMITTED')) {
-              debugPrint('❌ Cleartext HTTP error detected. Trying direct file loading...');
+            if (error.errorCode == -1 &&
+                error.description.contains('ERR_CLEARTEXT_NOT_PERMITTED')) {
+              debugPrint(
+                '❌ Cleartext HTTP error detected. Trying direct file loading...',
+              );
               _handleCleartextError();
             }
           },
@@ -78,6 +89,7 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
             controller.runJavaScript(
               "document.querySelectorAll('video, audio').forEach(function(m){try{m.muted=true; m.play().catch(function(){});}catch(e){}});",
             );
+            _startProgressTracking();
           },
           onNavigationRequest: (request) {
             debugPrint('🌐 Navigation request: ${request.url}');
@@ -91,17 +103,107 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
   @override
   void dispose() {
     _server?.close(force: true);
+    _progressService.dispose();
     super.dispose();
+  }
+
+  void _startProgressTracking() {
+    // Set up alert callback
+    _progressService.onShowAlert = (String message) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
+    };
+
+    // Start progress tracking for SCORM content
+    _progressService.startTracking(
+      videoId: widget.scorm.scormName.replaceAll(' ', '_'),
+      totalDuration: const Duration(
+        minutes: 15,
+      ), // Default duration, will be updated when content loads
+    );
+  }
+
+  void _handleVideoProgressMessage(String message) {
+    try {
+      final Map<String, dynamic> data = jsonDecode(message);
+
+      final String type = data['type'] ?? '';
+      final dynamic dataValue = data['data'];
+
+      debugPrint('📹 SCORM Video Progress: $type - $dataValue');
+
+      switch (type) {
+        case 'duration':
+          if (dataValue != null) {
+            final double duration = (dataValue is num)
+                ? dataValue.toDouble()
+                : 0;
+            _progressService.updateTotalDuration(
+              Duration(seconds: duration.round()),
+            );
+          }
+          break;
+
+        case 'position':
+          if (dataValue != null) {
+            final double position = (dataValue is num)
+                ? dataValue.toDouble()
+                : 0;
+            _progressService.updatePosition(
+              Duration(seconds: position.round()),
+            );
+          }
+          break;
+
+        case 'play':
+          _progressService.updatePlayState(true);
+          break;
+
+        case 'pause':
+          _progressService.updatePlayState(false);
+          break;
+
+        case 'seek':
+          if (dataValue != null) {
+            final double position = (dataValue is num)
+                ? dataValue.toDouble()
+                : 0;
+            _progressService.onSeek(Duration(seconds: position.round()));
+          }
+          break;
+
+        case 'ended':
+          _progressService.updatePlayState(false);
+          debugPrint('🏁 SCORM content ended');
+          break;
+      }
+    } catch (e) {
+      debugPrint('❌ Error handling SCORM video progress message: $e');
+    }
   }
 
   Future<void> _handleCleartextError() async {
     debugPrint('🔄 Attempting fallback to direct file loading...');
-    
+
     try {
       // Close the server
       await _server?.close(force: true);
       _server = null;
-      
+
       // Find the launch file again
       final Directory appDocDir = await getApplicationDocumentsDirectory();
       final String extractPath = path.join(
@@ -109,14 +211,14 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
         'scorm_extracted',
         widget.scorm.scormName.replaceAll(' ', '_'),
       );
-      
+
       final String? manifestPath = _findManifestFile(extractPath);
       String? launchPath;
       if (manifestPath != null) {
         launchPath = await _launchFromManifest(manifestPath);
       }
       launchPath ??= _findIndexFile(extractPath);
-      
+
       if (launchPath != null) {
         debugPrint('📄 Loading SCORM content directly from: $launchPath');
         await _webViewController.loadFile(launchPath);
@@ -136,6 +238,21 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+
+    // Calculate available height (screen height - app bar - status bar - padding)
+    final availableHeight =
+        screenHeight - kToolbarHeight - MediaQuery.of(context).padding.top - 16;
+    final availableWidth = screenWidth - 16;
+
+    debugPrint('📱 SCORM Player Dimensions:');
+    debugPrint('   Screen: ${screenWidth.toInt()}x${screenHeight.toInt()}');
+    debugPrint(
+      '   Available: ${availableWidth.toInt()}x${availableHeight.toInt()}',
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.scorm.scormName),
@@ -167,18 +284,11 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red[300],
-                    ),
+                    Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                     const SizedBox(height: 16),
                     Text(
                       'Error loading SCORM package',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -216,7 +326,9 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
                             });
                             _prepareAndLaunch();
                           },
-                          child: Text(_useLocalServer ? 'Try Direct' : 'Try Server'),
+                          child: Text(
+                            _useLocalServer ? 'Try Direct' : 'Try Server',
+                          ),
                         ),
                       ],
                     ),
@@ -224,32 +336,55 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
                 ),
               ),
             )
-          : Stack(
-              children: [
-                WebViewWidget(controller: _webViewController),
-                if (_isLoading)
-                  const Positioned.fill(
-                    child: ColoredBox(
-                      color: Color(0x11000000),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 16),
-                            Text(
-                              'Loading SCORM package...',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+          : Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                width: availableWidth,
+                height: availableHeight,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        width: availableWidth,
+                        height: availableHeight,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 1,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: WebViewWidget(controller: _webViewController),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                    if (_isLoading)
+                      const Positioned.fill(
+                        child: ColoredBox(
+                          color: Color(0x11000000),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Loading SCORM package...',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
     );
   }
@@ -263,7 +398,7 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
     try {
       debugPrint('🚀 Starting SCORM initialization...');
       debugPrint('📦 SCORM File: ${widget.scorm.scormFileLink}');
-      
+
       final Directory appDocDir = await getApplicationDocumentsDirectory();
       final String extractPath = path.join(
         appDocDir.path,
@@ -281,15 +416,15 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
       await extractDir.create(recursive: true);
 
       debugPrint('📦 Step 1: Extracting ${widget.scorm.scormFileLink}...');
-      
+
       // Extract from assets
       final ByteData data = await rootBundle.load(widget.scorm.scormFileLink);
       final Uint8List bytes = data.buffer.asUint8List();
       debugPrint('✅ Asset loaded: ${bytes.length} bytes');
-      
+
       final Archive archive = ZipDecoder().decodeBytes(bytes);
       int extractedFiles = 0;
-      
+
       for (final ArchiveFile f in archive) {
         final String outPath = path.join(extractPath, f.name);
         if (f.isFile) {
@@ -302,14 +437,14 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
           extractedFiles++;
         }
       }
-      
+
       debugPrint('✅ Step 1 Complete: Extracted $extractedFiles files');
 
       // Find manifest and resolve launch file
       debugPrint('🔍 Step 1.1: Locating imsmanifest.xml...');
       final String? manifestPath = _findManifestFile(extractPath);
       String? launchPath;
-      
+
       if (manifestPath != null) {
         debugPrint('✅ Found imsmanifest.xml at: $manifestPath');
         debugPrint('📋 Step 1.2: Parsing imsmanifest.xml...');
@@ -317,20 +452,20 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
       } else {
         debugPrint('⚠️ No manifest found, searching for index files...');
       }
-      
+
       launchPath ??= _findIndexFile(extractPath);
 
       if (launchPath == null) {
         throw Exception('No launchable HTML found');
       }
-      
+
       debugPrint('🎯 Found launch file: $launchPath');
 
       // Optionally serve via local HTTP
       if (_useLocalServer) {
         debugPrint('🌐 Step 2: Starting local server...');
         await _server?.close(force: true);
-        
+
         try {
           final handler = shelf.Pipeline()
               .addMiddleware(shelf.logRequests())
@@ -341,7 +476,7 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
                   serveFilesOutsidePath: false,
                 ),
               );
-          
+
           // Try to bind to a specific port range to avoid conflicts
           HttpServer? server;
           for (int port = 8080; port <= 8090; port++) {
@@ -351,7 +486,9 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
                 InternetAddress.loopbackIPv4,
                 port,
               );
-              debugPrint('✅ Step 2 Complete: Server started at http://localhost:$port');
+              debugPrint(
+                '✅ Step 2 Complete: Server started at http://localhost:$port',
+              );
               _server = server;
               break;
             } catch (e) {
@@ -359,7 +496,7 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
               continue;
             }
           }
-          
+
           if (_server == null) {
             throw Exception('Could not start server on any port 8080-8090');
           }
@@ -367,8 +504,10 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
           final String relative = path
               .relative(launchPath, from: extractPath)
               .replaceAll('\\', '/');
-          final Uri url = Uri.parse('http://127.0.0.1:${_server!.port}/$relative');
-          
+          final Uri url = Uri.parse(
+            'http://127.0.0.1:${_server!.port}/$relative',
+          );
+
           debugPrint('📄 Step 3: Loading SCORM content...');
           debugPrint('🌐 Loading: $url');
           await _webViewController.loadRequest(url);
@@ -398,7 +537,9 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
 
   String? _findManifestFile(String root) {
     try {
-      final List<FileSystemEntity> entries = Directory(root).listSync(recursive: true);
+      final List<FileSystemEntity> entries = Directory(
+        root,
+      ).listSync(recursive: true);
       for (final e in entries) {
         if (e is File &&
             path.basename(e.path).toLowerCase() == 'imsmanifest.xml') {
@@ -415,8 +556,10 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
     try {
       final String xmlString = await File(manifestPath).readAsString();
       debugPrint('📄 Manifest content length: ${xmlString.length} characters');
-      debugPrint('📄 Manifest content preview: ${xmlString.length > 200 ? xmlString.substring(0, 200) + '...' : xmlString}');
-      
+      debugPrint(
+        '📄 Manifest content preview: ${xmlString.length > 200 ? xmlString.substring(0, 200) + '...' : xmlString}',
+      );
+
       final doc = xml.XmlDocument.parse(xmlString);
       debugPrint('✅ Manifest structure validated');
 
@@ -431,24 +574,26 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
         debugPrint('❌ No organizations found in manifest');
         return null;
       }
-      
+
       final orgsEl = organizations.first;
       final String? defaultOrgId = orgsEl.getAttribute('default');
-      debugPrint('📚 Default organization ID: ${defaultOrgId ?? 'Not specified'}');
-      
+      debugPrint(
+        '📚 Default organization ID: ${defaultOrgId ?? 'Not specified'}',
+      );
+
       // Find all organizations
       final Iterable<xml.XmlElement> orgs = doc.findAllElements('organization');
       debugPrint('📚 Found ${orgs.length} organizations in manifest');
-      
+
       // Log all organization details
       for (final org in orgs) {
         final orgId = org.getAttribute('identifier');
-        final orgTitle = org.findElements('title').isNotEmpty 
-            ? org.findElements('title').first.innerText 
+        final orgTitle = org.findElements('title').isNotEmpty
+            ? org.findElements('title').first.innerText
             : 'No title';
         debugPrint('  - Organization: $orgId ($orgTitle)');
       }
-      
+
       // Select the organization to use
       xml.XmlElement? selectedOrg;
       if (defaultOrgId != null && defaultOrgId.isNotEmpty) {
@@ -461,13 +606,13 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
           }
         }
       }
-      
+
       // Fallback to first organization if default not found
       if (selectedOrg == null) {
         selectedOrg = orgs.isNotEmpty ? orgs.first : null;
         debugPrint('🔄 Using first organization as fallback');
       }
-      
+
       if (selectedOrg == null) {
         debugPrint('❌ No organization found');
         return null;
@@ -483,17 +628,23 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
       debugPrint('🎯 Found launchable resource ID: $launchableResourceId');
 
       // Find the resource with the matching identifier
-      final Iterable<xml.XmlElement> resources = doc.findAllElements('resource');
+      final Iterable<xml.XmlElement> resources = doc.findAllElements(
+        'resource',
+      );
       debugPrint('📚 Found ${resources.length} resources in manifest');
-      
+
       // Log all resources
       for (final res in resources) {
         final resId = res.getAttribute('identifier');
         final resHref = res.getAttribute('href');
-        final scormType = res.getAttribute('adlcp:scormType') ?? res.getAttribute('scormType');
-        debugPrint('  - Resource: $resId -> $resHref (type: ${scormType ?? 'unspecified'})');
+        final scormType =
+            res.getAttribute('adlcp:scormType') ??
+            res.getAttribute('scormType');
+        debugPrint(
+          '  - Resource: $resId -> $resHref (type: ${scormType ?? 'unspecified'})',
+        );
       }
-      
+
       xml.XmlElement? targetResource;
       for (final r in resources) {
         if (r.getAttribute('identifier') == launchableResourceId) {
@@ -502,9 +653,11 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
           break;
         }
       }
-      
+
       if (targetResource == null) {
-        debugPrint('❌ No resource found with identifier: $launchableResourceId');
+        debugPrint(
+          '❌ No resource found with identifier: $launchableResourceId',
+        );
         return null;
       }
 
@@ -513,13 +666,13 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
         debugPrint('❌ No href found in resource');
         return null;
       }
-      
+
       debugPrint('🎯 Found launch file: $href');
 
       final String baseDir = path.dirname(manifestPath);
       final String launchPath = path.normalize(path.join(baseDir, href));
       debugPrint('📁 Full launch path: $launchPath');
-      
+
       if (File(launchPath).existsSync()) {
         debugPrint('✅ Launch file exists');
         return launchPath;
@@ -535,43 +688,49 @@ class _ScormPlayerScreenState extends State<ScormPlayerScreen> {
 
   String? _findLaunchableItem(xml.XmlElement organization) {
     debugPrint('🔍 Searching for launchable item in organization...');
-    
+
     // Get all items in the organization
     final items = organization.findElements('item');
     debugPrint('📋 Found ${items.length} items in organization');
-    
+
     // Log all items
     for (final item in items) {
       final itemId = item.getAttribute('identifier');
-      final itemTitle = item.findElements('title').isNotEmpty 
-          ? item.findElements('title').first.innerText 
+      final itemTitle = item.findElements('title').isNotEmpty
+          ? item.findElements('title').first.innerText
           : 'No title';
       final identifierRef = item.getAttribute('identifierref');
       debugPrint('  - Item: $itemId ($itemTitle) -> $identifierRef');
     }
-    
+
     // Look for the first item with an identifierref (launchable item)
     for (final item in items) {
       final identifierRef = item.getAttribute('identifierref');
       if (identifierRef != null && identifierRef.isNotEmpty) {
-        debugPrint('✅ Found launchable item with identifierref: $identifierRef');
+        debugPrint(
+          '✅ Found launchable item with identifierref: $identifierRef',
+        );
         return identifierRef;
       }
     }
-    
+
     // If no item with identifierref found, look for nested items
-    debugPrint('🔄 No top-level launchable items found, checking nested items...');
+    debugPrint(
+      '🔄 No top-level launchable items found, checking nested items...',
+    );
     for (final item in items) {
       final nestedItems = item.findElements('item');
       for (final nestedItem in nestedItems) {
         final identifierRef = nestedItem.getAttribute('identifierref');
         if (identifierRef != null && identifierRef.isNotEmpty) {
-          debugPrint('✅ Found nested launchable item with identifierref: $identifierRef');
+          debugPrint(
+            '✅ Found nested launchable item with identifierref: $identifierRef',
+          );
           return identifierRef;
         }
       }
     }
-    
+
     debugPrint('❌ No launchable items found');
     return null;
   }

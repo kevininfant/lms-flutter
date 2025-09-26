@@ -20,7 +20,9 @@ class _ScormOnlyScreenState extends State<ScormOnlyScreen> {
   void initState() {
     super.initState();
     // Load SCORM data when screen initializes
-    context.read<ScormBloc>().add(LoadScormData());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ScormBloc>().add(LoadScormData());
+    });
   }
 
   @override
@@ -34,11 +36,21 @@ class _ScormOnlyScreenState extends State<ScormOnlyScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              print('🔄 Manual refresh triggered');
+              context.read<ScormBloc>().add(LoadScormData());
+            },
+            tooltip: 'Refresh SCORM Data',
+          ),
+          IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: () async {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Testing SCORM files... Check console for results'),
+                  content: Text(
+                    'Testing SCORM files... Check console for results',
+                  ),
                 ),
               );
               await ScormTest.testAllScormFiles();
@@ -49,35 +61,26 @@ class _ScormOnlyScreenState extends State<ScormOnlyScreen> {
       ),
       body: BlocBuilder<ScormBloc, ScormState>(
         builder: (context, state) {
+          print('🎬 SCORM Screen: Current state: ${state.runtimeType}');
           if (state is ScormLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            print('🎬 SCORM Screen: Showing loading...');
+            return const Center(child: CircularProgressIndicator());
           } else if (state is ScormError) {
+            print('🎬 SCORM Screen: Showing error: ${state.message}');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Error loading SCORM packages',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     state.message,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -91,23 +94,20 @@ class _ScormOnlyScreenState extends State<ScormOnlyScreen> {
               ),
             );
           } else if (state is ScormLoaded) {
+            print(
+              '🎬 SCORM Screen: Loaded ${state.scorms.length} SCORM packages',
+            );
             if (state.scorms.isEmpty) {
+              print('🎬 SCORM Screen: No SCORM packages found');
               return const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.school_outlined,
-                      size: 64,
-                      color: Colors.grey,
-                    ),
+                    Icon(Icons.school_outlined, size: 64, color: Colors.grey),
                     SizedBox(height: 16),
                     Text(
                       'No SCORM packages available',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -130,8 +130,21 @@ class _ScormOnlyScreenState extends State<ScormOnlyScreen> {
               ),
             );
           }
+
+          // Handle initial state
+          print('🎬 SCORM Screen: Showing initial state');
           return const Center(
-            child: Text('No data available'),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text(
+                  'Initializing SCORM packages...',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -141,9 +154,7 @@ class _ScormOnlyScreenState extends State<ScormOnlyScreen> {
   void _navigateToScormDetails(BuildContext context, Scorm scorm) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ScormPlayerScreen(scorm: scorm),
-      ),
+      MaterialPageRoute(builder: (context) => ScormPlayerScreen(scorm: scorm)),
     );
   }
 }
@@ -204,16 +215,10 @@ class ScormDetailsScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14),
-          ),
+          Text(value, style: const TextStyle(fontSize: 14)),
         ],
       ),
     );
